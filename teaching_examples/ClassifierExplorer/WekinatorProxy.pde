@@ -1,10 +1,23 @@
 // Created by Rebecca Fiebrink 2015
-
+//
+//  Changes:
+//
+//  [Brizo] Sep/2016 - Added refreshInputs(); added call to refreshInputs in train()
 public class WekinatorProxy {
    OscP5 oscP5;
    
    public WekinatorProxy(OscP5 oscP5) {
        this.oscP5 = oscP5;
+   }
+
+   //  deletes all examples and re-sends them (to account for moved points)
+   public void refreshInputs(List<Example> a_allExamples) {
+     deleteTraining();
+     for(int i=0; i<a_allExamples.size(); i++) {
+       startRecording();
+       setClass(a_allExamples.get(i).c);
+       sendInputs(a_allExamples.get(i).x, a_allExamples.get(i).y);
+     }
    }
 
    public void sendInputs(int x, int y) {
@@ -34,7 +47,9 @@ public class WekinatorProxy {
        oscP5.send(msg, dest);
    }
    
-   void train() {
+   //  
+   void train(List<Example> a_allExamples) {
+       refreshInputs(a_allExamples);
        OscMessage msg = new OscMessage("/wekinator/control/train");
        //println("Recording");
        oscP5.send(msg, dest);

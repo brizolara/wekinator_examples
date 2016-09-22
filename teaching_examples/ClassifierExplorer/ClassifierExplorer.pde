@@ -1,5 +1,11 @@
 // Created by Rebecca Fiebrink 2015
-
+//
+//  Changes:
+//  [Brizo] Sep, 2016 - added capability of moving a point. You should:
+//    - click 'a';
+//    - click a point (it will be colored differently then);
+//    - (now the point is going to follow the mouse);
+//    - click in the new position to drop the point there
 import controlP5.*;
 import oscP5.*;
 import netP5.*;
@@ -15,6 +21,10 @@ String errMsg = "";
 //Recording training examples, or generating test examples?
 boolean isRecording = true;
 int currentClass = 1; //Class of any new training examples
+
+//For moving a trainingPoint
+boolean movingPoint = false;
+Example pickedPoint = null;
 
 //For synchronization:
 Integer locking = new Integer(4);
@@ -75,6 +85,13 @@ void draw() {
    if (! isRecording){
      drawTestExamples();
    }
+   
+   //  If we are moving a point, it follows the mouse
+   if(pickedPoint != null) {
+     pickedPoint.x = mouseX;
+     pickedPoint.y = mouseY;
+   }
+   
    drawTrainingExamples();
    drawClassifierArea();
 
@@ -165,8 +182,25 @@ void mouseClicked() {
   if (isDrawingBoundaries || !inBounds(mouseX, mouseY)) {
     return;
   }
-  if (isRecording) {
-    createTrainingExample(mouseX, mouseY, currentClass);
+  if (isRecording)
+  {
+    if(movingPoint)
+    {
+      if(pickedPoint == null){ // 'a' has been pressed, and now we're gonna pick a point 
+        pickedPoint = trySelectTrainingPoint();
+        if(pickedPoint != null) {
+          pickedPoint.colorAsMoving();
+        }
+      } else {  //  we're gonna release the picked point in its new position 
+          pickedPoint.initColor();
+          pickedPoint = null;
+          movingPoint = false;
+      }
+    }
+    else
+    {
+      createTrainingExample(mouseX, mouseY, currentClass);  
+    }
   } else {
     wp.startRunning();
     sendSingleExample(mouseX, mouseY);
@@ -180,6 +214,8 @@ void keyPressed() {
   } else if (key == 'x' || key == 'X') {
     isWaitingSingle = false;
     errMsg = "";
+  } else if (key == 'a') { 
+    movingPoint = true;
   }
 }
 
@@ -304,7 +340,9 @@ void getNextBoundaryTester() {
 void buttonTrain() {
     isWaitingSingle = false;
       errMsg = "";
-   wp.train(); 
+   // trainingExamples goes as parameter, to re-synchronize with 
+   //wekinator, since we may have moved points
+   wp.train(trainingExamples); 
 }
 
 void updateButtonVisibility(boolean rec) {
@@ -336,3 +374,35 @@ void isRecording(boolean rValue) {
   }
   updateButtonVisibility(rValue);
 }
+
+Example trySelectTrainingPoint()
+{
+    int index = -1;
+    float distSqr;
+    float minorDistanceSqr = width*height;
+    Example nearestExample = null;
+    
+    synchronized(trainingExamples) {
+        Example example;
+        Iterator<Example> iterator = trainingExamples.iterator();
+        while (iterator.hasNext()) {
+            example = iterator.next();
+            distSqr = example.sqrDistanceToPoint(mouseX, mouseY);
+            if(distSqr < minorDistanceSqr) {
+                minorDistanceSqr = distSqr;
+                if(distSqr < example.radius*example.radius) {
+                  nearestExample = example;
+                }
+            }
+        }
+    }
+    
+    return nearestExample;
+    
+    /*if(index >=0) {
+        trainingPoint = trainingExample.get(index);
+    } else {
+        trainingPoint = null;
+    }*/
+}
+
